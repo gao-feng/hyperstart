@@ -553,7 +553,6 @@ int hyper_release_exec(struct hyper_exec *exec,
 
 		/* stop pod, should not restart container */
 		if (pod->type == STOPPOD) {
-			hyper_send_type(ctl.chan.fd, ACK);
 			hyper_cleanup_pod(pod);
 			return 0;
 		}
@@ -561,7 +560,6 @@ int hyper_release_exec(struct hyper_exec *exec,
 		/* should shutdown? */
 		if (pod->policy == POLICY_NEVER ||
 		   ((pod->policy == POLICY_ONFAILURE) && pod->code == 0)) {
-			hyper_send_finish(pod);
 			hyper_cleanup_pod(pod);
 			return 0;
 		}
