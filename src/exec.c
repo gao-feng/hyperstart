@@ -406,7 +406,11 @@ int hyper_dup_exec_tty(struct hyper_exec *e)
 
 	if (e->tty) {
 		char ptmx[512];
-		sprintf(ptmx, "/dev/pts/%d", e->ptyno);
+		if (e->init) {
+			sprintf(ptmx, "/dev/pts/%d", e->ptyno);
+		} else {
+			sprintf(ptmx, "/tmp/hyper/%s/devpts/%d", e->id, e->ptyno);
+		}
 		// reopen slave ptyfd for correcting the symlink path of the /dev/fd/1
 		e->ptyfd = open(ptmx, O_RDWR | O_CLOEXEC);
 		if (e->ptyfd < 0 || ioctl(e->ptyfd, TIOCSCTTY, NULL) < 0) {
@@ -537,6 +541,7 @@ out:
 static int hyper_do_exec_cmd(struct hyper_exec *exec, struct hyper_pod *pod, int pipe)
 {
 	int pid = -1, ret = -1;
+if (exec->init) {
 	char path[512];
 	int pidns;
 
@@ -577,6 +582,7 @@ static int hyper_do_exec_cmd(struct hyper_exec *exec, struct hyper_pod *pod, int
 		setenv("TERM", "xterm", 1);
 	else
 		unsetenv("TERM");
+}
 
 	hyper_exec_process(exec);
 
@@ -701,11 +707,14 @@ int hyper_run_process(struct hyper_exec *exec)
 	}
 	fprintf(stdout, "do_exec_cmd pid %d\n", pid);
 
-	if (hyper_get_type(pipe[0], &type) < 0 || (int)type < 0) {
-		fprintf(stderr, "hyper init doesn't get execcmd ready message\n");
-		goto close_tty;
-	}
-	exec->pid = type;
+	if (exec->init) {
+		if (hyper_get_type(pipe[0], &type) < 0 || (int)type < 0) {
+			fprintf(stderr, "hyper init doesn't get execcmd ready message\n");
+			goto close_tty;
+		}
+		exec->pid = type;
+	} else
+		exec->pid = pid;
 
 	fprintf(stdout, "%s get ready message %"PRIu32 "\n", __func__, type);
 	ret = 0;
