@@ -995,8 +995,18 @@ static int hyper_ttyfd_handle(struct hyper_event *de, uint32_t len)
 	}
 
 	if (size > 0) {
+		struct hyper_buf *twbuf = &de->wbuf;
+
 		memcpy(wbuf->data + wbuf->get, rbuf->data + 12, size);
 		wbuf->get += size;
+
+		if (twbuf->get + 12 < twbuf->size) {
+			fprintf(stdout, "%s: receive %d data, send out ack\n", __func__, size);
+			hyper_set_be64(twbuf->data + twbuf->get, seq);
+			hyper_set_be32(twbuf->data + twbuf->get + 8, 10);
+			twbuf->get += 12;
+			hyper_modify_event(ctl.efd, de, de->flag | EPOLLOUT);
+		}
 		if (hyper_modify_event(ctl.efd, &exec->stdinev, EPOLLOUT) < 0) {
 			fprintf(stderr, "modify exec pts event to in & out failed\n");
 			return -1;
