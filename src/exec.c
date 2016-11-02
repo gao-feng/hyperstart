@@ -31,9 +31,10 @@ struct stdio_config {
 static int hyper_release_exec(struct hyper_exec *);
 static void hyper_exec_process(struct hyper_exec *exec, struct stdio_config *io);
 
-static int send_exec_finishing(uint64_t seq, int len, int code)
+static int hyper_send_exec_eof(struct hyper_exec *exec)
 {
 	struct hyper_buf *buf = &ctl.tty.wbuf;
+	int len = 12;
 
 	if (buf->get + len > buf->size) {
 		uint8_t *data;
@@ -49,23 +50,21 @@ static int send_exec_finishing(uint64_t seq, int len, int code)
 	}
 
 	/* no in event, no more data, send eof */
-	hyper_set_be64(buf->data + buf->get, seq);
+	hyper_set_be64(buf->data + buf->get, exec->seq);
 	hyper_set_be32(buf->data + buf->get + 8, len);
-	if (len > 12)
-		buf->data[buf->get + 12] = code;
-
 	buf->get += len;
 	hyper_modify_event(ctl.efd, &ctl.tty, EPOLLIN | EPOLLOUT);
 
 	return 0;
 }
 
-static int hyper_send_exec_eof(struct hyper_exec *exec) {
-	return send_exec_finishing(exec->seq, 12, -1);
-}
-
 static int hyper_send_exec_code(struct hyper_exec *exec) {
-	return send_exec_finishing(exec->seq, 13, exec->code);
+	uint8_t data[10];
+
+	data[8] = exec->code;
+	data[9] = 0;
+	hyper_set_be64(data, exec->seq);
+	return hyper_send_msg_block(ctl.chan.fd, CMDFINISHED, 10, data);
 }
 
 static void pts_hup(struct hyper_event *de, int efd, struct hyper_exec *exec)
