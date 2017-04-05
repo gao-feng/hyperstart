@@ -716,14 +716,16 @@ static int hyper_release_exec(struct hyper_exec *exec)
 
 	fprintf(stdout, "%s exit code %" PRIu8"\n", __func__, exec->code);
 	if (exec->init) {
+		struct hyper_container *c = container_of(exec, struct hyper_container, exec);
 		fprintf(stdout, "%s container init exited %s, remains %d\n",
 			__func__, exec->pod->req_destroy?"manually":"automatically", exec->pod->remains);
+
 
 		if (--exec->pod->remains == 0 && exec->pod->req_destroy) {
 			/* shutdown vm manually, hyper doesn't care the pod finished codes */
 			hyper_pod_destroyed(exec->pod, 0);
 		}
-
+		hyper_cleanup_container(c, exec->pod);
 		return 0;
 	}
 
